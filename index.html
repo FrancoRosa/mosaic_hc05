@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Socket.IO Payload Logger</title>
+  <style>
+    :root{
+      --bg:#0f1724; --panel:#0b1220; --muted:#9aa4b2; --accent:#7dd3fc;
+      --success:#34d399; --danger:#fb7185; --card:#071025;
+    }
+    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:#e6eef6;background:linear-gradient(180deg,var(--bg),#07112a);-webkit-font-smoothing:antialiased}
+    .app{max-width:980px;margin:28px auto;padding:20px;background:linear-gradient(180deg,var(--panel),rgba(255,255,255,0.02));border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{font-size:18px;margin:0;color:#dff6ff}
+    .meta{font-size:13px;color:var(--muted)}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{background:#0b1220;border:1px solid rgba(255,255,255,0.03);color:var(--muted);padding:8px 10px;border-radius:8px;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,var(--accent),#60a5fa);color:#042028;border:none}
+    button.danger{background:linear-gradient(90deg,#fb7185,#f97316);color:#200a06;border:none}
+    #status{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:13px}
+    #log{margin-top:16px;background:linear-gradient(180deg,var(--card),rgba(255,255,255,0.02));padding:12px;border-radius:10px;height:60vh;overflow:auto;border:1px solid rgba(255,255,255,0.02)}
+    .entry{padding:10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.02);display:flex;gap:12px;align-items:flex-start}
+    .when{min-width:170px;color:var(--muted);font-size:12px}
+    .payload{flex:1;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.01);padding:8px;border-radius:6px;color:#dbeefb;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:13px}
+    .eventName{font-weight:700;color:var(--accent);margin-bottom:6px}
+    .small{font-size:12px;color:var(--muted)}
+    footer{margin-top:12px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center}
+    input[type="text"]{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:var(--muted)}
+    label{font-size:13px;color:var(--muted);margin-right:8px}
+  </style>
+</head>
+<body>
+  <div class="app" role="main">
+    <header>
+      <div>
+        <h1>Socket.IO Payload Logger</h1>
+        <div class="meta">Connecting to <strong>ws://localhost:10000</strong> — displays all incoming events with timestamps</div>
+      </div>
+      <div class="controls">
+        <span id="status" class="small">DISCONNECTED</span>
+        <button id="btnReconnect" class="primary">Connect</button>
+        <button id="btnClear">Clear</button>
+        <button id="btnCopy">Copy Log</button>
+      </div>
+    </header>
+
+    <div id="log" aria-live="polite" aria-atomic="false"></div>
+
+    <footer>
+      <div class="small">Listening to all events via <code>socket.onAny</code></div>
+      <div>
+        <label for="maxEntries" class="small">Max entries:</label>
+        <input id="maxEntries" type="text" value="200" size="4" />
+      </div>
+    </footer>
+  </div>
+
+  <!-- Socket.IO client (CDN) -->
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <script>
+    // Configuration
+    const URL = 'http://localhost:10000';
+    let socket = null;
+    const logEl = document.getElementById('log');
+    const statusEl = document.getElementById('status');
+    const btnReconnect = document.getElementById('btnReconnect');
+    const btnClear = document.getElementById('btnClear');
+    const btnCopy = document.getElementById('btnCopy');
+    const maxEntriesInput = document.getElementById('maxEntries');
+
+    // Utilities
+    function setStatus(text, color) {
+      statusEl.textContent = text;
+      statusEl.style.background = color ? color : 'transparent';
+      statusEl.style.color = color ? '#021214' : '';
+      statusEl.style.padding = color ? '6px 8px' : '0';
+    }
+
+    function timestamp() {
+      return (new Date()).toLocaleString();
+    }
+
+    function addEntry(eventName, payload) {
+      const entry = document.createElement('div');
+      entry.className = 'entry';
+
+      const when = document.createElement('div');
+      when.className = 'when';
+      when.textContent = timestamp();
+
+      const content = document.createElement('div');
+      content.className = 'payload';
+
+      const name = document.createElement('div');
+      name.className = 'eventName';
+      name.textContent = eventName;
+
+      const body = document.createElement('div');
+      body.textContent = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
+
+      content.appendChild(name);
+      content.appendChild(body);
+
+      entry.appendChild(when);
+      entry.appendChild(content);
+
+      logEl.appendChild(entry);
+      // enforce max entries
+      const max = parseInt(maxEntriesInput.value) || 200;
+      while (logEl.children.length > max) logEl.removeChild(logEl.firstChild);
+      // auto-scroll
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function connect() {
+      if (socket && socket.connected) return;
+      setStatus('CONNECTING...', ''); 
+
+      // Create socket with default reconnection enabled
+      socket = io(URL, {
+        reconnectionAttempts: 5,
+        transports: ['websocket', 'polling']
+      });
+
+      socket.on('connect', () => {
+        setStatus('CONNECTED', '#34d399'); // green
+        addEntry('system', { msg: 'connected', id: socket.id });
+      });
+
+      socket.on('disconnect', (reason) => {
+        setStatus('DISCONNECTED', '#fb7185'); // red
+        addEntry('system', { msg: 'disconnected', reason });
+      });
+
+      socket.on('connect_error', (err) => {
+        setStatus('ERROR', '#fb7185');
+        addEntry('system', { msg: 'connect_error', error: String(err) });
+      });
+
+      // capture every event (name + payload)
+      socket.onAny((event, ...args) => {
+        // If server emits binary buffers, attempt to represent them sensibly
+        const payload = args.length <= 1 ? args[0] : args;
+        addEntry(event, payload);
+      });
+    }
+
+    function disconnect() {
+      if (!socket) return;
+      socket.disconnect();
+      setStatus('DISCONNECTED', '#fb7185');
+      addEntry('system', { msg: 'manual_disconnect' });
+    }
+
+    // Buttons
+    btnReconnect.addEventListener('click', () => {
+      if (socket && socket.connected) {
+        disconnect();
+        btnReconnect.textContent = 'Connect';
+      } else {
+        connect();
+        btnReconnect.textContent = 'Disconnect';
+      }
+    });
+
+    btnClear.addEventListener('click', () => logEl.innerHTML = '');
+
+    btnCopy.addEventListener('click', async () => {
+      // collect text of log
+      const lines = Array.from(logEl.children).map(entry => {
+        const when = entry.querySelector('.when').textContent;
+        const event = entry.querySelector('.eventName').textContent;
+        const body = entry.querySelector('.payload > div:last-child').textContent;
+        return `${when} [${event}]\n${body}\n`;
+      }).join('\n');
+      try {
+        await navigator.clipboard.writeText(lines);
+        alert('Log copied to clipboard');
+      } catch (e) {
+        alert('Copy failed: ' + e);
+      }
+    });
+
+    // Auto-connect on load
+    connect();
+
+    // Helpful keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'k') { // Ctrl+K clears
+        e.preventDefault();
+        logEl.innerHTML = '';
+      }
+      if (e.ctrlKey && e.key === 'r') { // Ctrl+R reconnect
+        e.preventDefault();
+        disconnect();
+        setTimeout(connect, 300);
+      }
+    });
+
+    // If the user navigates away ensure socket closed
+    window.addEventListener('beforeunload', () => {
+      if (socket) socket.close();
+    });
+  </script>
+</body>
+</html>
