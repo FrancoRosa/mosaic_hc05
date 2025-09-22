@@ -15,9 +15,13 @@ This is a set of instructions to use hc-05 bluetooth modules with mosaic-h recei
 In order to transmit the data stream from the mosaic receiver it is necessary to change the default HC-05 configuration from 9600 bauds to 115200.
 
 This setting is done by using a ttl to USB adapter connected as shown bellow
-![configuration setup](./img/config.png)
 
-![How it looks](./img/configr.png)
+<p align="center">
+  <img src="./img/config.png" width="600" alt="Configuration schema">
+</p>
+<p align="center">
+  <img src="./img/configr.png" width="600" alt="Implementation">
+</p>
 
 In order to access to configuration mode, the button on the bluetooth module should be pressed for 4 seconds when powering on, then run the configuration script `./config.sh`
 
@@ -53,8 +57,15 @@ OK
 ## HC-05 and mosaic operation
 
 Once the previous step is performed the following configuration is required:
-![Operation](./img/operation.png)
 
-![Implementation](./img/operationr.png)
+<p align="center">
+  <img src="./img/operation.png" width="600" alt="Operation">
+</p>
+<p align="center">
+  <img src="./img/operationr1.png" width="600" alt="Implementation">
+</p>
+<p align="center">
+  <img src="./img/operationr2.png" width="600" alt="Implementation">
+</p>
 
 On linux, it is necessary to pair the bluetooth device, then we will pick the mac address from the HC-05 then associate to an specific port, from now on the bluetooth will automatically connect to the target PC.
