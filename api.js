@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const http = require("http");
 const socketio = require("socket.io");
-const mosaic = require("./js/mosaic");
+const mosaic = require("./js/mosaic-ip");
 const radio = require("./js/radio");
 
 const app = express();
