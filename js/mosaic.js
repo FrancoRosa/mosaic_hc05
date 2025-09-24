@@ -35,9 +35,15 @@ socket.on("rtcm", (data) => {
 const getMosaicPorts = async (broadcaster) => {
   let ports = await SerialPort.list();
   broadcaster("ports", {
-    ports: ports.filter((port) => port.manufacturer !== undefined),
+    ports: [
+      ...ports.filter((port) => port.manufacturer !== undefined),
+      ...ports.filter((port) => port.path.includes("rfcomm")),
+    ],
   });
-  ports = ports.filter((port) => port.manufacturer?.includes("Septentrio"));
+  ports = [
+    ...ports.filter((port) => port.manufacturer?.includes("Septentrio")),
+    ...ports.filter((port) => port.path.includes("rfcomm")),
+  ];
   console.log({ ports });
   return ports.map((p) => p.path);
 };
