@@ -23,7 +23,7 @@ fi
 send_cmd() {
   local CMD=$1
   echo "[TX] $CMD"
-  echo -e "$CMD\r" > "$PORT"
+  echo -e "$CMD\r\n" > "$PORT"
   sleep 1
 }
 
