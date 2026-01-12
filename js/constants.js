@@ -1,4 +1,3 @@
-
 const registers = {
   rel: {
     code: "\x62\x01\x3c",
@@ -391,25 +390,25 @@ const registers = {
     header: "\x24\x40",
     code: "\x12\x17",
     time: {
-      index: 8,
+      index: 5,
       type: "u4",
       scaling: 1,
       unit: "ms",
     },
     covLat: {
-      index: 16,
+      index: 14,
       type: "f4",
       scaling: 1,
       unit: "deg",
     },
     covLng: {
-      index: 20,
+      index: 18,
       type: "f4",
       scaling: 1,
       unit: "deg",
     },
     covHeight: {
-      index: 24,
+      index: 22,
       type: "f4",
       scaling: 1,
       unit: "deg",

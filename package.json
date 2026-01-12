@@ -11,6 +11,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.12.4",
   "dependencies": {
+    "@serialport/parser-delimiter": "^13.0.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "serialport": "^13.0.0",

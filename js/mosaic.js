@@ -1,4 +1,5 @@
 const { SerialPort } = require("serialport");
+const { DelimiterParser } = require("@serialport/parser-delimiter");
 const { decode } = require("./mosaic_decoder");
 
 const { io } = require("socket.io-client");
@@ -98,8 +99,9 @@ const connectGPS = async (broadcaster, updateBaseSerial) => {
   if (paths.length > 0) {
     console.log(`... connecting gps${device} to :`, paths[index1]);
     port1 = new SerialPort({ path: paths[index1], baudRate });
+    const parser = port1.pipe(new DelimiterParser({ delimiter: "\x24\x40" }));
     updateBaseSerial(port1);
-    port1.on("data", (e) => handleData(e, device));
+    parser.on("data", (e) => handleData(e, device));
     port1.on("open", () => handleOpen(paths[index1], device));
     port1.on("close", () => handleClose(paths[index1], device));
     port1.on("error", (e) => handleError(e, device));

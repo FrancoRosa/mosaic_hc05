@@ -174,37 +174,51 @@ const getFlags = (frame, target) => {
 };
 
 const decode = (e, flags, device, broadcaster) => {
-  if (e.length === 196) {
-    if (e.slice(4, 6).toString("latin1") == registers.msc_rel.code) {
-      try {
-        const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
-        payload = { ...payload, ...geoPVT };
-      } catch (error) {
-        console.log("... pvt decode error");
-      }
+  if (e.length === 54) {
+    // msc_cov
+    if (e.slice(2, 4).toString("latin1") == registers.msc_cov.code) {
+      // try {
+      console.log("Payload!!");
+      console.log(e);
+      const cov = covMosaicDecoder(e, registers.msc_cov);
+      console.log("rel_spotted");
+      console.log(cov);
+      // payload = { ...payload, ...cov };
+      // } catch (error) {
+      //   console.log("... cov decode error");
+      // }
     }
-
-    if (e.slice(156, 158).toString("latin1") == registers.msc_att.code) {
-      try {
-        const rel = attMosaicDecoder(e.slice(152), registers.msc_att);
-        payload = { ...payload, ...rel };
-      } catch (error) {
-        console.log("...att decode error");
-      }
-    }
-    if (e.slice(100, 102).toString("latin1") == registers.msc_cov.code) {
-      try {
-        const cov = covMosaicDecoder(e.slice(96), registers.msc_cov);
-        payload = { ...payload, ...cov };
-      } catch (error) {
-        console.log("...cov decode error");
-      }
-    }
-    flags.pvt = 1;
-    flags.rel = 1;
-    console.log(payload);
-    broadcaster("data", { ...payload, device });
   }
+  // if (e.length === 42) {
+  //   // msc_att
+  //   if (e.slice(2, 4).toString("latin1") == registers.msc_att.code) {
+  //     try {
+  //       const rel = attMosaicDecoder(e.slice(6), registers.msc_att);
+  //       console.log("rel_spotted");
+  //       payload = { ...payload, ...rel };
+  //     } catch (error) {
+  //       console.log("...att decode error");
+  //     }
+  //   }
+  // }
+
+  // if (e.length === 94) {
+  //   // msc_rel
+  //   if (e.slice(2, 4).toString("latin1") == registers.msc_rel.code) {
+  //     try {
+  //       const geoPVT = pvtMosaicDecoder(e.slice(6), registers.msc_rel);
+  //       console.log("rel_spotted");
+  //       payload = { ...payload, ...geoPVT };
+  //     } catch (error) {
+  //       console.log("... pvt decode error");
+  //     }
+  //   }
+
+  //   flags.pvt = 1;
+  //   flags.rel = 1;
+  //   console.log(payload);
+  //   broadcaster("data", { ...payload, device });
+  // }
 };
 
 const getFrame = (e, obj) => {
@@ -234,7 +248,7 @@ const pvtMosaicDecoder = (e, obj) => {
   const time = toInt(frame, obj.time);
   const lat = toInt(frame, obj.lat);
   const lng = toInt(frame, obj.lng);
-  const height = 3.2808 * (toInt(frame, obj.height));
+  const height = 3.2808 * toInt(frame, obj.height);
   const fixType = getFlags(frame, obj.mode);
   // const hAcc = toInt(frame, obj.hAcc);
   // const vAcc = toInt(frame, obj.vAcc);
@@ -264,17 +278,18 @@ const attMosaicDecoder = (e, obj) => {
 };
 
 const covMosaicDecoder = (e, obj) => {
-  const frame = getFrame(e, obj);
+  console.log("inside decoder");
+  console.log(e);
+  const frame = e; //getFrame(e, obj)
   return {
     // covLat: Math.sqrt(toInt(frame, obj.covLat)),
     // covLng: Math.sqrt(toInt(frame, obj.covLng)),
     // covHgt: Math.sqrt(toInt(frame, obj.covHeight)),
 
-    vAcc: Math.sqrt(toInt(frame, obj.covLat)) * 1000,
+    time: Math.sqrt(toInt(frame, obj.time)),
+    vAcc: Math.sqrt(toInt(frame, obj.covLat)) * 204,
     hAcc: Math.sqrt(toInt(frame, obj.covHeight)) * 1000,
   };
 };
-
-
 
 exports.decode = decode;
