@@ -1,0 +1,9 @@
+setDataInOut, COM1, RTCMv3
+setSBFOutput, Stream1, USB1
+setSBFOutput, Stream2, COM1
+setSBFOutput, Stream1, , AttEuler+PVTGeodetic+PosCovGeodetic
+setSBFOutput, Stream2, , AttEuler+PVTGeodetic+PosCovGeodetic
+setSBFOutput, Stream1, , , msec200
+setSBFOutput, Stream2, , , msec200
+setIPServerSettings, IPS1, 8181
+setIPServerSettings, IPS1, , TCP2Way
