@@ -287,19 +287,19 @@ const registers = {
     header: "\x24\x40",
     code: "\xa7\x4f",
     len: {
-      index: 6,
+      index: 4,
       type: "u2",
       scaling: 1,
       unit: "u",
     },
     time: {
-      index: 8,
+      index: 6,
       type: "u4",
       scaling: 1,
       unit: "ms",
     },
     mode: {
-      index: 14,
+      index: 12,
       type: "u1",
       values: {
         0: {
@@ -322,31 +322,31 @@ const registers = {
       },
     },
     lat: {
-      index: 16,
+      index: 14,
       type: "f8",
       scaling: 57.29577951308232, // 180/pi
       unit: "deg",
     },
     lng: {
-      index: 24,
+      index: 22,
       type: "f8",
       scaling: 57.29577951308232, // 180/pi
       unit: "deg",
     },
     height: {
-      index: 32,
+      index: 30,
       type: "f8",
       scaling: 1, // 180/pi
       unit: "m",
     },
     hAcc: {
-      index: 90,
+      index: 88,
       type: "u2",
       scaling: 0.01,
       unit: "m",
     },
     vAcc: {
-      index: 92,
+      index: 90,
       type: "u2",
       scaling: 0.01,
       unit: "m",
@@ -362,25 +362,25 @@ const registers = {
       unit: "u",
     },
     time: {
-      index: 8,
+      index: 6,
       type: "u4",
       scaling: 1,
       unit: "ms",
     },
     heading: {
-      index: 20,
+      index: 18,
       type: "f4",
       scaling: 1, // 180/pi
       unit: "deg",
     },
     pitch: {
-      index: 24,
+      index: 22,
       type: "f4",
       scaling: 1,
       unit: "deg",
     },
     roll: {
-      index: 28,
+      index: 26,
       type: "f4",
       scaling: 1,
       unit: "deg",
@@ -390,7 +390,7 @@ const registers = {
     header: "\x24\x40",
     code: "\x12\x17",
     time: {
-      index: 5,
+      index: 6,
       type: "u4",
       scaling: 1,
       unit: "ms",
