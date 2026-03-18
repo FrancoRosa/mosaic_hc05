@@ -54,27 +54,6 @@ const intToI1 = (value) => {
   return Buffer.from([value < 0 ? maxU1 + value : value]).reverse();
 };
 
-const getTmode3Payload = (lat, lng, alt) => {
-  const latg = Math.round(lat * 1e7);
-  const lngg = Math.round(lng * 1e7);
-  const altg = Math.round(alt);
-  const latd = Math.round((lat * 1e7 - latg) * 1e2);
-  const lngd = Math.round((lng * 1e7 - lngg) * 1e2);
-  const altd = Math.round((alt - altg) * 1e2);
-  return Buffer.concat([
-    intToI4(latg),
-    intToI4(lngg),
-    intToI4(altg),
-    intToI1(latd),
-    intToI1(lngd),
-    intToI1(altd),
-  ]);
-};
-
-const bufferFromBytes = (bytes) => {
-  return Buffer.from(bytes.split(" ").map((byte) => parseInt(byte, 16)));
-};
-
 const toInt = (frame, target, units = false) => {
   const { index, type, scaling, unit } = target;
   let result;
@@ -237,12 +216,20 @@ const pvtMosaicDecoder = (e, obj) => {
   const lng = toInt(e, obj.lng);
   const height = 3.2808 * toInt(e, obj.height);
   const fixType = getFlags(e, obj.mode);
+  const vn = toInt(e, obj.vn);
+  const ve = toInt(e, obj.ve);
+  const vu = toInt(e, obj.vu);
+  const v = Math.sqrt(vn ** 2 + ve ** 2 + vu ** 2);
   return {
     time,
     lat,
     lng,
     height,
     fixType,
+    vn,
+    ve,
+    vu,
+    v,
   };
 };
 

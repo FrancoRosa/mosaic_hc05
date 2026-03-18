@@ -339,6 +339,25 @@ const registers = {
       scaling: 1, // 180/pi
       unit: "m",
     },
+    vn: {
+      index: 42,
+      type: "f4",
+      scaling: 1,
+      unit: "m/s",
+    },
+    ve: {
+      index: 46,
+      type: "f4",
+      scaling: 1,
+      unit: "m/s",
+    },
+    vu: {
+      index: 50,
+      type: "f4",
+      scaling: 1,
+      unit: "m/s",
+    },
+
     hAcc: {
       index: 88,
       type: "u2",
