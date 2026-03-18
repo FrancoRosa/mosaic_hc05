@@ -49121,6 +49121,49 @@ var require_dist3 = __commonJS({
   }
 });
 
+// node_modules/.pnpm/@serialport+parser-delimiter@13.0.0/node_modules/@serialport/parser-delimiter/dist/index.js
+var require_dist4 = __commonJS({
+  "node_modules/.pnpm/@serialport+parser-delimiter@13.0.0/node_modules/@serialport/parser-delimiter/dist/index.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.DelimiterParser = void 0;
+    var stream_1 = require("stream");
+    var DelimiterParser = class extends stream_1.Transform {
+      includeDelimiter;
+      delimiter;
+      buffer;
+      constructor({ delimiter, includeDelimiter = false, ...options }) {
+        super(options);
+        if (delimiter === void 0) {
+          throw new TypeError('"delimiter" is not a bufferable object');
+        }
+        if (delimiter.length === 0) {
+          throw new TypeError('"delimiter" has a 0 or undefined length');
+        }
+        this.includeDelimiter = includeDelimiter;
+        this.delimiter = Buffer.from(delimiter);
+        this.buffer = Buffer.alloc(0);
+      }
+      _transform(chunk, encoding, cb) {
+        let data = Buffer.concat([this.buffer, chunk]);
+        let position;
+        while ((position = data.indexOf(this.delimiter)) !== -1) {
+          this.push(data.slice(0, position + (this.includeDelimiter ? this.delimiter.length : 0)));
+          data = data.slice(position + this.delimiter.length);
+        }
+        this.buffer = data;
+        cb();
+      }
+      _flush(cb) {
+        this.push(this.buffer);
+        this.buffer = Buffer.alloc(0);
+        cb();
+      }
+    };
+    exports2.DelimiterParser = DelimiterParser;
+  }
+});
+
 // js/constants.js
 var require_constants2 = __commonJS({
   "js/constants.js"(exports2, module2) {
@@ -49408,19 +49451,19 @@ var require_constants2 = __commonJS({
         header: "$@",
         code: "\xA7O",
         len: {
-          index: 6,
+          index: 4,
           type: "u2",
           scaling: 1,
           unit: "u"
         },
         time: {
-          index: 8,
+          index: 6,
           type: "u4",
           scaling: 1,
           unit: "ms"
         },
         mode: {
-          index: 14,
+          index: 12,
           type: "u1",
           values: {
             0: {
@@ -49443,34 +49486,52 @@ var require_constants2 = __commonJS({
           }
         },
         lat: {
-          index: 16,
+          index: 14,
           type: "f8",
           scaling: 57.29577951308232,
           // 180/pi
           unit: "deg"
         },
         lng: {
-          index: 24,
+          index: 22,
           type: "f8",
           scaling: 57.29577951308232,
           // 180/pi
           unit: "deg"
         },
         height: {
-          index: 32,
+          index: 30,
           type: "f8",
           scaling: 1,
           // 180/pi
           unit: "m"
         },
+        vn: {
+          index: 42,
+          type: "f4",
+          scaling: 1,
+          unit: "m/s"
+        },
+        ve: {
+          index: 46,
+          type: "f4",
+          scaling: 1,
+          unit: "m/s"
+        },
+        vu: {
+          index: 50,
+          type: "f4",
+          scaling: 1,
+          unit: "m/s"
+        },
         hAcc: {
-          index: 90,
+          index: 88,
           type: "u2",
           scaling: 0.01,
           unit: "m"
         },
         vAcc: {
-          index: 92,
+          index: 90,
           type: "u2",
           scaling: 0.01,
           unit: "m"
@@ -49486,26 +49547,26 @@ var require_constants2 = __commonJS({
           unit: "u"
         },
         time: {
-          index: 8,
+          index: 6,
           type: "u4",
           scaling: 1,
           unit: "ms"
         },
         heading: {
-          index: 20,
+          index: 18,
           type: "f4",
           scaling: 1,
           // 180/pi
           unit: "deg"
         },
         pitch: {
-          index: 24,
+          index: 22,
           type: "f4",
           scaling: 1,
           unit: "deg"
         },
         roll: {
-          index: 28,
+          index: 26,
           type: "f4",
           scaling: 1,
           unit: "deg"
@@ -49515,25 +49576,25 @@ var require_constants2 = __commonJS({
         header: "$@",
         code: "",
         time: {
-          index: 8,
+          index: 6,
           type: "u4",
           scaling: 1,
           unit: "ms"
         },
         covLat: {
-          index: 16,
+          index: 14,
           type: "f4",
           scaling: 1,
           unit: "deg"
         },
         covLng: {
-          index: 20,
+          index: 18,
           type: "f4",
           scaling: 1,
           unit: "deg"
         },
         covHeight: {
-          index: 24,
+          index: 22,
           type: "f4",
           scaling: 1,
           unit: "deg"
@@ -49661,29 +49722,29 @@ var require_mosaic_decoder = __commonJS({
       return result;
     };
     var decode = (e, flags, device, broadcaster) => {
-      if (e.length === 196) {
-        if (e.slice(4, 6).toString("latin1") == registers.msc_rel.code) {
-          try {
-            const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
-            payload = { ...payload, ...geoPVT };
-          } catch (error) {
-            console.log("... pvt decode error");
-          }
+      if (e.length === 54) {
+        if (e.slice(2, 4).toString("latin1") == registers.msc_cov.code) {
+          const cov = covMosaicDecoder(e, registers.msc_cov);
+          payload = { ...payload, ...cov };
         }
-        if (e.slice(156, 158).toString("latin1") == registers.msc_att.code) {
+      }
+      if (e.length === 42) {
+        if (e.slice(2, 4).toString("latin1") == registers.msc_att.code) {
           try {
-            const rel = attMosaicDecoder(e.slice(152), registers.msc_att);
+            const rel = attMosaicDecoder(e, registers.msc_att);
             payload = { ...payload, ...rel };
           } catch (error) {
             console.log("...att decode error");
           }
         }
-        if (e.slice(100, 102).toString("latin1") == registers.msc_cov.code) {
+      }
+      if (e.length === 94) {
+        if (e.slice(2, 4).toString("latin1") == registers.msc_rel.code) {
           try {
-            const cov = covMosaicDecoder(e.slice(96), registers.msc_cov);
-            payload = { ...payload, ...cov };
+            const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
+            payload = { ...payload, ...geoPVT };
           } catch (error) {
-            console.log("...cov decode error");
+            console.log("... pvt decode error");
           }
         }
         flags.pvt = 1;
@@ -49692,38 +49753,33 @@ var require_mosaic_decoder = __commonJS({
         broadcaster("data", { ...payload, device });
       }
     };
-    var getFrame = (e, obj) => {
-      const start = e.indexOf(obj.header);
-      const frame = e.slice(start, e.length);
-      return frame;
-    };
     var pvtMosaicDecoder = (e, obj) => {
-      const frame = getFrame(e, obj);
-      const len = toInt(frame, obj.len);
-      if (len !== 96) {
-        return false;
-      }
-      const time = toInt(frame, obj.time);
-      const lat = toInt(frame, obj.lat);
-      const lng = toInt(frame, obj.lng);
-      const height = 3.2808 * toInt(frame, obj.height);
-      const fixType = getFlags(frame, obj.mode);
+      const time = toInt(e, obj.time);
+      const lat = toInt(e, obj.lat);
+      const lng = toInt(e, obj.lng);
+      const height = 3.2808 * toInt(e, obj.height);
+      const fixType = getFlags(e, obj.mode);
+      const vn = toInt(e, obj.vn);
+      const ve = toInt(e, obj.ve);
+      const vu = toInt(e, obj.vu);
+      const v = Math.sqrt(vn ** 2 + ve ** 2 + vu ** 2);
       return {
         time,
         lat,
         lng,
         height,
-        fixType
-        // hAcc,
-        // vAcc,
+        fixType,
+        vn,
+        ve,
+        vu,
+        v
       };
     };
     var attMosaicDecoder = (e, obj) => {
-      const frame = getFrame(e, obj);
-      const pitch = toInt(frame, obj.pitch);
-      const heading = toInt(frame, obj.heading);
+      const pitch = toInt(e, obj.pitch);
+      const heading = toInt(e, obj.heading);
       return {
-        time: toInt(frame, obj.time),
+        time: toInt(e, obj.time),
         heading: heading > -2e4 ? heading : 0,
         pitch: pitch > -2e4 ? pitch : 0,
         lenght: 1,
@@ -49732,13 +49788,9 @@ var require_mosaic_decoder = __commonJS({
       };
     };
     var covMosaicDecoder = (e, obj) => {
-      const frame = getFrame(e, obj);
       return {
-        // covLat: Math.sqrt(toInt(frame, obj.covLat)),
-        // covLng: Math.sqrt(toInt(frame, obj.covLng)),
-        // covHgt: Math.sqrt(toInt(frame, obj.covHeight)),
-        vAcc: Math.sqrt(toInt(frame, obj.covLat)) * 1e3,
-        hAcc: Math.sqrt(toInt(frame, obj.covHeight)) * 1e3
+        vAcc: Math.sqrt(toInt(e, obj.covLat)) * 204,
+        hAcc: Math.sqrt(toInt(e, obj.covHeight)) * 1e3
       };
     };
     exports2.decode = decode;
@@ -53472,6 +53524,7 @@ var require_cjs5 = __commonJS({
 var require_mosaic = __commonJS({
   "js/mosaic.js"(exports2) {
     var { SerialPort } = require("serialport");
+    var { DelimiterParser } = require_dist4();
     var { decode } = require_mosaic_decoder();
     var { io: io2 } = require_cjs5();
     var settings = require("./settings.json");
@@ -53555,8 +53608,9 @@ var require_mosaic = __commonJS({
       if (paths.length > 0) {
         console.log(`... connecting gps${device} to :`, paths[index1]);
         port1 = new SerialPort({ path: paths[index1], baudRate });
+        const parser = port1.pipe(new DelimiterParser({ delimiter: "$@" }));
         updateBaseSerial2(port1);
-        port1.on("data", (e) => handleData(e, device));
+        parser.on("data", (e) => handleData(e, device));
         port1.on("open", () => handleOpen(paths[index1], device));
         port1.on("close", () => handleClose(paths[index1], device));
         port1.on("error", (e) => handleError(e, device));
