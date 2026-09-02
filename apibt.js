@@ -3,7 +3,6 @@ const cors = require("cors");
 const http = require("http");
 const socketio = require("socket.io");
 const mosaic = require("./js/mosaic");
-const radio = require("./js/radio");
 
 const app = express();
 app.use(cors());
@@ -31,10 +30,7 @@ setTimeout(() => {
   mosaic.connectGPS(emitter, updateBaseSerial);
 }, 2000);
 
-setTimeout(() => {
-  console.log("... connecting radio");
-  radio.connectRadio(emitter, getBaseSerial);
-}, 3000);
+
 
 app.get("/", (req, res) => {
   res.send({ message: "gps server working, waiting for commands" });
@@ -55,4 +51,5 @@ const emitter = (type, message) => {
 };
 
 const port = 10000;
-server.listen(port, () => console.log("... listening on", port));
+const host = "0.0.0.0";
+server.listen(port, host,() => console.log("... listening on", port));

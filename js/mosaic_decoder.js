@@ -152,6 +152,7 @@ const getFlags = (frame, target) => {
   return result;
 };
 
+let count= 0
 const decode = (e, flags, device, broadcaster) => {
   if (e.length === 54) {
     // msc_cov
@@ -187,8 +188,12 @@ const decode = (e, flags, device, broadcaster) => {
 
     flags.pvt = 1;
     flags.rel = 1;
-    console.log(payload);
+    count++
     broadcaster("data", { ...payload, device });
+    if (count >= 20) {
+      console.log({ ...payload, device })
+      count=0
+    }
   }
 };
 
