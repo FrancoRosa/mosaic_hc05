@@ -4,7 +4,7 @@ const { decode } = require("./mosaic_decoder");
 
 const { io } = require("socket.io-client");
 const settings = require("../settings.json");
-const socket = io(settings.ntrip);
+const socket = io(settings.ntrip, {rejectUnauthorized:false});
 
 const baudRate = 115200;
 let paths = [];
