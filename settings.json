@@ -1,4 +1,3 @@
 {
-  "ntrip": "wss://rtkflow.site/cusco",
-  "mosaic": "192.168.5.1:8181"
+  "ntrip": "wss://rtkflow.site/cusco"
 }
