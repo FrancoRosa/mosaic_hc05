@@ -285,7 +285,7 @@ const registers = {
 
   msc_rel: {
     header: "\x24\x40",
-    code: "\xa7\x4f",
+    number: 4007, // PVTGeodetic — see SBF ID field bits 0-12 (4.1.1)
     len: {
       index: 4,
       type: "u2",
@@ -373,7 +373,7 @@ const registers = {
   },
   msc_att: {
     header: "\x24\x40",
-    code: "\x32\x17",
+    number: 5938, // AttEuler — see SBF ID field bits 0-12 (4.1.1)
     len: {
       index: 6,
       type: "u2",
@@ -405,9 +405,17 @@ const registers = {
       unit: "deg",
     },
   },
+  msc_ins: {
+    header: "\x24\x40",
+    number: 4226, // INSNavGeod — see SBF ID field bits 0-12 (4.1.1)
+    // fixed-header fields end at index 54 (SBList); after that, up to 8
+    // optional 12-byte sub-blocks follow in increasing bit order depending
+    // on which bits of SBList are set (guide 4.2.11) — Attitude is bit 1
+    attitudeBit: 1,
+  },
   msc_cov: {
     header: "\x24\x40",
-    code: "\x12\x17",
+    number: 5906, // PosCovGeodetic — see SBF ID field bits 0-12 (4.1.1)
     time: {
       index: 6,
       type: "u4",

@@ -154,30 +154,41 @@ const getFlags = (frame, target) => {
 
 let dataCount = 0;
 
+// per the SBF reference guide (4.1.1/4.1.6/4.1.12): only bits 0-12 of the ID
+// field identify the block, bits 13-15 are just its revision number, and
+// block lengths must not be hardcoded since later revisions only append
+// fields — so block identity is decided by number, length is only a
+// lower-bound safety check before reading fields
+const blockNumber = (e) => e.readUInt16LE(2) & 0x1fff;
+
 const decode = (e, flags, device, broadcaster) => {
-  if (e.length === 54) {
-    // msc_cov
-    if (e.slice(2, 4).toString("latin1") == registers.msc_cov.code) {
-      const cov = covMosaicDecoder(e, registers.msc_cov);
-      payload = { ...payload, ...cov };
-    }
-  }
-  if (e.length === 42) {
-    if (e.slice(2, 4).toString("latin1") == registers.msc_att.code) {
-      try {
-        const rel = attMosaicDecoder(e, registers.msc_att);
-        payload = { ...payload, ...rel };
-      } catch (error) {}
-    }
+  if (e.length < 4) return;
+  const block = blockNumber(e);
+
+  if (block === registers.msc_cov.number && e.length >= 26) {
+    const cov = covMosaicDecoder(e, registers.msc_cov);
+    payload = { ...payload, ...cov };
   }
 
-  if (e.length === 94) {
-    if (e.slice(2, 4).toString("latin1") == registers.msc_rel.code) {
-      try {
-        const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
-        payload = { ...payload, ...geoPVT };
-      } catch (error) {}
-    }
+  if (block === registers.msc_att.number && e.length >= 26) {
+    try {
+      const rel = attMosaicDecoder(e, registers.msc_att);
+      payload = { ...payload, ...rel };
+    } catch (error) {}
+  }
+
+  if (block === registers.msc_ins.number && e.length >= 54) {
+    try {
+      const insAtt = insAttMosaicDecoder(e, registers.msc_ins);
+      if (insAtt) payload = { ...payload, ...insAtt };
+    } catch (error) {}
+  }
+
+  if (block === registers.msc_rel.number && e.length >= 92) {
+    try {
+      const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
+      payload = { ...payload, ...geoPVT };
+    } catch (error) {}
 
     flags.pvt = 1;
     flags.rel = 1;
@@ -233,13 +244,12 @@ const pvtMosaicDecoder = (e, obj) => {
 const attMosaicDecoder = (e, obj) => {
   const pitch = toInt(e, obj.pitch);
   const heading = toInt(e, obj.heading);
+  const roll = toInt(e, obj.roll);
   return {
     time: toInt(e, obj.time),
     heading: heading > -20000 ? heading : 0,
     pitch: pitch > -20000 ? pitch : 0,
-    lenght: 1,
-    n: 1,
-    e: 1,
+    roll: roll > -20000 ? roll : 0,
   };
 };
 
@@ -247,6 +257,33 @@ const covMosaicDecoder = (e, obj) => {
   return {
     vAcc: Math.sqrt(toInt(e, obj.covLat)) * 204,
     hAcc: Math.sqrt(toInt(e, obj.covHeight)) * 1000,
+  };
+};
+
+// INSNavGeod's Attitude sub-block only exists if bit `attitudeBit` is set in
+// SBList, and sub-blocks are packed back-to-back (12 bytes each) in
+// increasing bit order starting right after the fixed header — so we have
+// to walk every lower bit just to find where Attitude actually starts
+const insAttMosaicDecoder = (e, obj) => {
+  const sbList = e.readUInt16LE(52);
+  if (!(sbList & (1 << obj.attitudeBit))) return null;
+
+  let offset = 54;
+  for (let bit = 0; bit < obj.attitudeBit; bit++) {
+    if (sbList & (1 << bit)) offset += 12;
+  }
+  if (e.length < offset + 12) return null;
+
+  const heading = e.readFloatLE(offset);
+  const pitch = e.readFloatLE(offset + 4);
+  const roll = e.readFloatLE(offset + 8);
+  const valid = (v) => v > -1e9;
+
+  return {
+    time: e.readUInt32LE(6),
+    heading: valid(heading) ? heading : 0,
+    pitch: valid(pitch) ? pitch : 0,
+    roll: valid(roll) ? roll : 0,
   };
 };
 
