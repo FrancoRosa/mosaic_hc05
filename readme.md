@@ -94,13 +94,47 @@ through its web interface or a serial terminal connected to COM1):
 $ cat com1-usb1.txt
 ```
 
+## AntaRx-Si3 receiver configuration
+
+[`apian.js`](./apian.js) is an alternative to `api.js` for the Septentrio
+AntaRx-Si3 receiver instead of a Mosaic-H over HC-05. It connects over USB
+(no Bluetooth/rfcomm pairing needed) and reuses the same SBF decoder, since
+`PVTGeodetic` and `PosCovGeodetic` are byte-identical between the two
+receivers.
+
+The AntaRx-Si3 has its own onboard IMU, so attitude comes from a different
+block than on the Mosaic-H: instead of `AttEuler` (which needs a second,
+auxiliary antenna this unit doesn't have and would only ever report zeros),
+it uses `INSNavGeod`, the GNSS/IMU-fused navigation block. Configure it with:
+
+```
+setGNSSAttitude, none
+setIMUOrientation, SensorDefault
+setINSNavConfig, on, Att, MainAnt
+setSBFOutput, Stream1, USB1
+setSBFOutput, Stream2, COM1
+setSBFOutput, Stream1, , PVTGeodetic+PosCovGeodetic+INSNavGeod
+setSBFOutput, Stream2, , PVTGeodetic+PosCovGeodetic+INSNavGeod
+setSBFOutput, Stream1, , , msec200
+setSBFOutput, Stream2, , , msec200
+setDataInOut, COM1, RTCMv3
+```
+
+`setIMUOrientation,SensorDefault` assumes the unit is mounted flat, right
+side up, with its X axis pointing to the front of the vehicle — see the
+receiver's reference guide (section 2.7.1) if it's mounted differently.
+
 ## Running the GNSS service
 
-Install dependencies and start the server:
+Install dependencies, then start whichever server matches the receiver
+that's connected — `api.js` for a Mosaic-H over HC-05, `apian.js` for an
+AntaRx-Si3 over USB. Both serve the same UI on the same port, so run one
+at a time:
 
 ```bash
 $ pnpm install
-$ node api.js
+$ node api.js     # Mosaic-H
+$ node apian.js   # AntaRx-Si3
 ```
 
 Once running, open `http://localhost:10000` in a browser to see the live
@@ -123,3 +157,7 @@ alongside it, then run it the same way:
 ```bash
 $ node api_bundle.js
 ```
+
+`compile.sh` only bundles `api.js` right now; run `apian.js` directly with
+`node` (or point `compile.sh` at `apian.js`/`apian_bundle.js` if you also
+need a bundled build for the AntaRx-Si3).
