@@ -152,17 +152,14 @@ const getFlags = (frame, target) => {
   return result;
 };
 
-let count= 0
+let dataCount = 0;
+
 const decode = (e, flags, device, broadcaster) => {
   if (e.length === 54) {
     // msc_cov
     if (e.slice(2, 4).toString("latin1") == registers.msc_cov.code) {
-      // try {
       const cov = covMosaicDecoder(e, registers.msc_cov);
       payload = { ...payload, ...cov };
-      // } catch (error) {
-      //   console.log("... cov decode error");
-      // }
     }
   }
   if (e.length === 42) {
@@ -170,9 +167,7 @@ const decode = (e, flags, device, broadcaster) => {
       try {
         const rel = attMosaicDecoder(e, registers.msc_att);
         payload = { ...payload, ...rel };
-      } catch (error) {
-        console.log("...att decode error");
-      }
+      } catch (error) {}
     }
   }
 
@@ -181,18 +176,15 @@ const decode = (e, flags, device, broadcaster) => {
       try {
         const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
         payload = { ...payload, ...geoPVT };
-      } catch (error) {
-        console.log("... pvt decode error");
-      }
+      } catch (error) {}
     }
 
     flags.pvt = 1;
     flags.rel = 1;
-    count++
-    broadcaster("data", { ...payload, device });
-    if (count >= 20) {
-      console.log({ ...payload, device })
-      count=0
+    dataCount++;
+    if (dataCount >= 5) {
+      broadcaster("data", { ...payload, device });
+      dataCount = 0;
     }
   }
 };

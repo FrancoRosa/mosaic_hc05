@@ -4,7 +4,7 @@ const { decode } = require("./mosaic_decoder");
 
 const { io } = require("socket.io-client");
 const settings = require("../settings.json");
-const socket = io(settings.ntrip, {rejectUnauthorized:false});
+const socket = io(settings.ntrip, { rejectUnauthorized: false });
 
 const baudRate = 115200;
 let paths = [];
@@ -12,26 +12,57 @@ let paths = [];
 let index1 = 0;
 let port1;
 
+// set once connectGPS() runs and api.js hands us its broadcaster; until
+// then status/stat updates are just dropped since there is no UI listening
+let broadcasterRef = null;
+const emit = (type, message) => {
+  if (broadcasterRef) broadcasterRef(type, message);
+};
+
+const ntripStatus = (status, extra) => {
+  emit("ntrip", { status, url: settings.ntrip, ...extra });
+};
+
 socket.on("connect", () => {
-  console.log("... connected", socket.id); // x8WIv7-mJelg7on_ALbx
+  console.log("... connected to ntrip socket.io");
+  ntripStatus("connected");
 });
 
-socket.on("disconnect", () => {
-  console.log("... disconnected", socket.id); // undefined
+socket.on("disconnect", (reason) => {
+  ntripStatus("disconnected", { reason });
 });
 
-let ntrip_count = 0;
+socket.on("connect_error", (err) => {
+  ntripStatus("error", { message: err.message });
+});
+
+socket.io.on("reconnect_attempt", (attempt) => {
+  ntripStatus("connecting", { attempt });
+});
+
+socket.io.on("reconnect_failed", () => {
+  ntripStatus("error", { message: "reconnect failed" });
+});
+
+// byte counters for the kbps readouts, reset every second by the stats timer
+let ntripBytes = 0;
+let serialBytes = 0;
 
 socket.on("rtcm", (data) => {
   if (data) {
-    if (port1) {
-      port1.write(data);
-      if (ntrip_count === 0) console.log("... mosaic web ntrip sent");
-      ntrip_count++;
-      if (ntrip_count > 5) ntrip_count = 0;
-    }
+    ntripBytes += data.length;
+    if (port1) port1.write(data);
   }
 });
+
+setInterval(() => {
+  emit("stats", {
+    ntripKbps: (ntripBytes * 8) / 1000,
+    serialKbps: (serialBytes * 8) / 1000,
+  });
+  ntripBytes = 0;
+  serialBytes = 0;
+}, 1000);
 
 const getMosaicPorts = async (broadcaster) => {
   let ports = await SerialPort.list();
@@ -45,18 +76,19 @@ const getMosaicPorts = async (broadcaster) => {
     ...ports.filter((port) => port.manufacturer?.includes("Septentrio")),
     ...ports.filter((port) => port.path.includes("rfcomm")),
   ];
-  console.log({ ports });
   return ports.map((p) => p.path);
 };
 
-const changePath = async (broadcaster, device, updateBaseSerial) => {
+const changePath = async (broadcaster, device) => {
   index1++;
   index1 = index1 < paths.length ? index1 : 0;
-  console.log("... changing path to:", index1, paths[index1]);
-  reconnectGPS(broadcaster, device, updateBaseSerial);
+  reconnectGPS(broadcaster, device);
 };
 
-const connectGPS = async (broadcaster, updateBaseSerial) => {
+const connectGPS = async (broadcaster) => {
+  broadcasterRef = broadcaster;
+  ntripStatus(socket.connected ? "connected" : "connecting");
+
   const flags = { pvt: 0, rel: 0 };
   const device = 1;
 
@@ -64,58 +96,65 @@ const connectGPS = async (broadcaster, updateBaseSerial) => {
     decode(e, flags, device, broadcaster);
   };
 
-  const handleError = (e, device) => {
-    console.log(`... gps${device} error:`, e.message);
-    broadcaster("gps", { device, status: "error" });
-    changePath(broadcaster, device, updateBaseSerial);
+  const handleError = (e, device, path) => {
+    broadcaster("gps", { device, status: "error", path });
+    if (flags.pvt && flags.rel) {
+      // already confirmed a valid SBF stream on this port — retry it
+      // instead of wandering off to search other ports
+      reconnectGPS(broadcaster, device);
+    } else {
+      changePath(broadcaster, device);
+    }
   };
 
   const handleOpen = (path, device) => {
-    console.log(`... gps${device} connected:`, path);
-    broadcaster("gps", { device, status: "connected" });
+    console.log(`... connected to serial port:`, path);
+    broadcaster("gps", { device, status: "connected", path });
     setTimeout(() => {
       if (!flags.pvt || !flags.rel) {
-        console.log(`... frames not found ${device}`);
-        port1.close(() => changePath(broadcaster, device, updateBaseSerial));
+        port1.close(() => changePath(broadcaster, device));
       }
     }, 5000);
   };
 
   const handleClose = (path, device) => {
-    console.log(`... gps${device} closed:`, path);
-    broadcaster("gps", { device, status: "closed" });
-    if (flags.pvt && flags.rel)
-      reconnectGPS(broadcaster, device, updateBaseSerial);
+    broadcaster("gps", { device, status: "closed", path });
+    if (flags.pvt && flags.rel) reconnectGPS(broadcaster, device);
   };
 
   const handleNotConnected = (device) => {
-    console.error(`... gps${device} not connected`);
     broadcaster("gps", { device, status: "not connected" });
-    reconnectGPS(broadcaster, device, updateBaseSerial);
+    reconnectGPS(broadcaster, device);
   };
 
   paths = await getMosaicPorts(broadcaster);
   if (paths[index1] === undefined) index1 = 0;
   if (paths.length > 0) {
-    console.log(`... connecting gps${device} to :`, paths[index1]);
     port1 = new SerialPort({ path: paths[index1], baudRate });
     const parser = port1.pipe(new DelimiterParser({ delimiter: "\x24\x40" }));
-    updateBaseSerial(port1);
+    port1.on("data", (chunk) => {
+      serialBytes += chunk.length;
+    });
     parser.on("data", (e) => handleData(e, device));
     port1.on("open", () => handleOpen(paths[index1], device));
     port1.on("close", () => handleClose(paths[index1], device));
-    port1.on("error", (e) => handleError(e, device));
+    port1.on("error", (e) => handleError(e, device, paths[index1]));
   } else {
-    updateBaseSerial();
     handleNotConnected(device);
   }
 };
 
-const reconnectGPS = (emit, device, updateBaseSerial) => {
+// guards against error + close both firing for the same fault and each
+// scheduling their own reconnect, which would race two connectGPS() calls
+let reconnectScheduled = false;
+
+const reconnectGPS = (broadcaster, device) => {
+  if (reconnectScheduled) return;
+  reconnectScheduled = true;
   setTimeout(() => {
-    console.log("... reconnecting mosaic");
-    emit("gps", { device, status: "connecting" });
-    connectGPS(emit, updateBaseSerial);
+    reconnectScheduled = false;
+    broadcaster("gps", { device, status: "connecting" });
+    connectGPS(broadcaster);
   }, 15000);
 };
 

@@ -1,206 +1,247 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Socket.IO Payload Logger</title>
-  <style>
-    :root{
-      --bg:#0f1724; --panel:#0b1220; --muted:#9aa4b2; --accent:#7dd3fc;
-      --success:#34d399; --danger:#fb7185; --card:#071025;
-    }
-    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:#e6eef6;background:linear-gradient(180deg,var(--bg),#07112a);-webkit-font-smoothing:antialiased}
-    .app{max-width:980px;margin:28px auto;padding:20px;background:linear-gradient(180deg,var(--panel),rgba(255,255,255,0.02));border-radius:12px;box-shadow:0 8px 30px rgba(2,6,23,0.6);border:1px solid rgba(255,255,255,0.03)}
-    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
-    h1{font-size:18px;margin:0;color:#dff6ff}
-    .meta{font-size:13px;color:var(--muted)}
-    .controls{display:flex;gap:8px;align-items:center}
-    button{background:#0b1220;border:1px solid rgba(255,255,255,0.03);color:var(--muted);padding:8px 10px;border-radius:8px;cursor:pointer}
-    button.primary{background:linear-gradient(90deg,var(--accent),#60a5fa);color:#042028;border:none}
-    button.danger{background:linear-gradient(90deg,#fb7185,#f97316);color:#200a06;border:none}
-    #status{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:13px}
-    #log{margin-top:16px;background:linear-gradient(180deg,var(--card),rgba(255,255,255,0.02));padding:12px;border-radius:10px;height:60vh;overflow:auto;border:1px solid rgba(255,255,255,0.02)}
-    .entry{padding:10px;border-radius:8px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.02);display:flex;gap:12px;align-items:flex-start}
-    .when{min-width:170px;color:var(--muted);font-size:12px}
-    .payload{flex:1;white-space:pre-wrap;word-break:break-word;background:rgba(255,255,255,0.01);padding:8px;border-radius:6px;color:#dbeefb;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:13px}
-    .eventName{font-weight:700;color:var(--accent);margin-bottom:6px}
-    .small{font-size:12px;color:var(--muted)}
-    footer{margin-top:12px;color:var(--muted);font-size:13px;display:flex;justify-content:space-between;align-items:center}
-    input[type="text"]{background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px;color:var(--muted)}
-    label{font-size:13px;color:var(--muted);margin-right:8px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>mosaic_hc05 terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0d0a;
+    --panel: #0f140f;
+    --border: #1e2a1e;
+    --fg: #c9f7c9;
+    --dim: #5f8a5f;
+    --ok: #39ff88;
+    --warn: #ffcc66;
+    --err: #ff5f5f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 10px;
+    gap: 8px;
+  }
+  .titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--fg);
+  }
+  .statusbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .stat { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .label { color: var(--dim); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .dot.err { background: var(--err); box-shadow: 0 0 6px var(--err); }
+  .panels { display: flex; gap: 8px; flex: 1; min-height: 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel h2 {
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .devices { flex: 0 0 240px; }
+  .devices ul { list-style: none; margin: 0; padding: 8px 10px; overflow: auto; }
+  .devices li { padding: 3px 0; word-break: break-all; }
+  .readout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+  }
+  .clock {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--ok);
+  }
+  .fields {
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+  .fields .p { margin: 0; padding: 0;}
+  .fields .k { color: var(--dim); }
+  .fields .v { color: var(--fg); margin-right: 18px; }
+  @media (max-width: 700px) {
+    .panels { flex-direction: column; }
+    .devices { flex: 0 0 160px; }
+  }
+</style>
 </head>
 <body>
-  <div class="app" role="main">
-    <header>
-      <div>
-        <h1>Socket.IO Payload Logger</h1>
-        <div class="meta">Connecting to <strong>ws://localhost:10000</strong> — displays all incoming events with timestamps</div>
-      </div>
-      <div class="controls">
-        <span id="status" class="small">DISCONNECTED</span>
-        <button id="btnReconnect" class="primary">Connect</button>
-        <button id="btnClear">Clear</button>
-        <button id="btnCopy">Copy Log</button>
-      </div>
-    </header>
-
-    <div id="log" aria-live="polite" aria-atomic="false"></div>
-
-    <footer>
-      <div class="small">Listening to all events via <code>socket.onAny</code></div>
-      <div>
-        <label for="maxEntries" class="small">Max entries:</label>
-        <input id="maxEntries" type="text" value="200" size="4" />
-      </div>
-    </footer>
+  <div class="titlebar">
+    <div class="title"><span class="dot" id="dotSocket"></span>gnss service</div>
+    <div class="stat"><span class="label">uptime</span><span id="uptime">00:00:00</span></div>
+  </div>
+  <div class="statusbar">
+    <div class="stat"><span class="dot" id="dotGps"></span><span class="label">serial</span><span id="gpsStatus">-</span></div>
+    <div class="stat"><span class="label">kbps</span><span id="serialKbps">0</span></div>
+    <div class="stat"><span class="label">port</span><span id="portPath">-</span></div>
+  </div>
+  <div class="statusbar">
+    <div class="stat"><span class="dot" id="dotNtrip"></span><span class="label">ntrip</span><span id="ntripStatus">-</span></div>
+    <div class="stat"><span class="label">kbps</span><span id="ntripKbps">0</span></div>
+    <div class="stat"><span class="label">url</span><span id="ntripUrl">-</span></div>
   </div>
 
-  <!-- Socket.IO client (CDN) -->
+  <div class="panels">
+    <div class="panel devices">
+      <h2>usb / serial devices</h2>
+      <ul id="deviceList"><li class="label">scanning...</li></ul>
+    </div>
+    <div class="panel">
+      <h2>parsed gps data</h2>
+      <div class="readout">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="fields" id="fields">-</div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   <script>
-    // Configuration
-    const URL = 'http://localhost:10000';
-    let socket = null;
-    const logEl = document.getElementById('log');
-    const statusEl = document.getElementById('status');
-    const btnReconnect = document.getElementById('btnReconnect');
-    const btnClear = document.getElementById('btnClear');
-    const btnCopy = document.getElementById('btnCopy');
-    const maxEntriesInput = document.getElementById('maxEntries');
+    const el = (id) => document.getElementById(id);
+    const socket = io();
 
-    // Utilities
-    function setStatus(text, color) {
-      statusEl.textContent = text;
-      statusEl.style.background = color ? color : 'transparent';
-      statusEl.style.color = color ? '#021214' : '';
-      statusEl.style.padding = color ? '6px 8px' : '0';
+    let bootTime = null;
+    let uptimeTimer = null;
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    function fmtUptime(ms) {
+      let s = Math.floor(ms / 1000);
+      const h = pad(Math.floor(s / 3600));
+      s %= 3600;
+      const m = pad(Math.floor(s / 60));
+      s %= 60;
+      return `${h}:${m}:${pad(s)}`;
     }
 
-    function timestamp() {
-      return (new Date()).toLocaleString();
+    function setDot(id, cls) {
+      el(id).className = "dot" + (cls ? " " + cls : "");
     }
 
-    function addEntry(eventName, payload) {
-      const entry = document.createElement('div');
-      entry.className = 'entry';
-
-      const when = document.createElement('div');
-      when.className = 'when';
-      when.textContent = timestamp();
-
-      const content = document.createElement('div');
-      content.className = 'payload';
-
-      const name = document.createElement('div');
-      name.className = 'eventName';
-      name.textContent = eventName;
-
-      const body = document.createElement('div');
-      body.textContent = typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2);
-
-      content.appendChild(name);
-      content.appendChild(body);
-
-      entry.appendChild(when);
-      entry.appendChild(content);
-
-      logEl.appendChild(entry);
-      // enforce max entries
-      const max = parseInt(maxEntriesInput.value) || 200;
-      while (logEl.children.length > max) logEl.removeChild(logEl.firstChild);
-      // auto-scroll
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-
-    function connect() {
-      if (socket && socket.connected) return;
-      setStatus('CONNECTING...', ''); 
-
-      // Create socket with default reconnection enabled
-      socket = io(URL, {
-        reconnectionAttempts: 5,
-        transports: ['websocket', 'polling']
-      });
-
-      socket.on('connect', () => {
-        setStatus('CONNECTED', '#34d399'); // green
-        addEntry('system', { msg: 'connected', id: socket.id });
-      });
-
-      socket.on('disconnect', (reason) => {
-        setStatus('DISCONNECTED', '#fb7185'); // red
-        addEntry('system', { msg: 'disconnected', reason });
-      });
-
-      socket.on('connect_error', (err) => {
-        setStatus('ERROR', '#fb7185');
-        addEntry('system', { msg: 'connect_error', error: String(err) });
-      });
-
-      // capture every event (name + payload)
-      socket.onAny((event, ...args) => {
-        // If server emits binary buffers, attempt to represent them sensibly
-        const payload = args.length <= 1 ? args[0] : args;
-        addEntry(event, payload);
-      });
-    }
-
-    function disconnect() {
-      if (!socket) return;
-      socket.disconnect();
-      setStatus('DISCONNECTED', '#fb7185');
-      addEntry('system', { msg: 'manual_disconnect' });
-    }
-
-    // Buttons
-    btnReconnect.addEventListener('click', () => {
-      if (socket && socket.connected) {
-        disconnect();
-        btnReconnect.textContent = 'Connect';
-      } else {
-        connect();
-        btnReconnect.textContent = 'Disconnect';
-      }
+    socket.on("connect", () => {
+      el("socketStatus").textContent = "connected";
+      setDot("dotSocket", "ok");
     });
 
-    btnClear.addEventListener('click', () => logEl.innerHTML = '');
-
-    btnCopy.addEventListener('click', async () => {
-      // collect text of log
-      const lines = Array.from(logEl.children).map(entry => {
-        const when = entry.querySelector('.when').textContent;
-        const event = entry.querySelector('.eventName').textContent;
-        const body = entry.querySelector('.payload > div:last-child').textContent;
-        return `${when} [${event}]\n${body}\n`;
-      }).join('\n');
-      try {
-        await navigator.clipboard.writeText(lines);
-        alert('Log copied to clipboard');
-      } catch (e) {
-        alert('Copy failed: ' + e);
-      }
+    socket.on("disconnect", () => {
+      el("socketStatus").textContent = "disconnected";
+      setDot("dotSocket", "err");
     });
 
-    // Auto-connect on load
-    connect();
-
-    // Helpful keyboard shortcuts
-    window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.key === 'k') { // Ctrl+K clears
-        e.preventDefault();
-        logEl.innerHTML = '';
-      }
-      if (e.ctrlKey && e.key === 'r') { // Ctrl+R reconnect
-        e.preventDefault();
-        disconnect();
-        setTimeout(connect, 300);
-      }
+    socket.on("boot", ({ startTime }) => {
+      bootTime = startTime;
+      if (uptimeTimer) clearInterval(uptimeTimer);
+      uptimeTimer = setInterval(() => {
+        el("uptime").textContent = fmtUptime(Date.now() - bootTime);
+      }, 1000);
+      el("uptime").textContent = fmtUptime(Date.now() - bootTime);
     });
 
-    // If the user navigates away ensure socket closed
-    window.addEventListener('beforeunload', () => {
-      if (socket) socket.close();
+    socket.on("ntrip", ({ status, url }) => {
+      el("ntripStatus").textContent = status;
+      el("ntripUrl").textContent = url;
+      setDot("dotNtrip", status === "connected" ? "ok" : status === "connecting" ? "warn" : "err");
+    });
+
+    socket.on("stats", ({ ntripKbps, serialKbps }) => {
+      el("ntripKbps").textContent = ntripKbps.toFixed(1);
+      el("serialKbps").textContent = serialKbps.toFixed(1);
+    });
+
+    socket.on("gps", ({ device, status, path }) => {
+      el("gpsStatus").textContent = `${status} (dev ${device})`;
+      setDot(
+        "dotGps",
+        status === "connected"
+          ? "ok"
+          : status === "connecting"
+          ? "warn"
+          : "err"
+      );
+      if (path) el("portPath").textContent = path;
+    });
+
+    socket.on("ports", ({ ports }) => {
+      const list = el("deviceList");
+      list.innerHTML = "";
+      if (!ports || ports.length === 0) {
+        list.innerHTML = '<li class="label">no devices found</li>';
+        return;
+      }
+      ports.forEach((p) => {
+        const li = document.createElement("li");
+        li.textContent = p.path + (p.manufacturer ? " — " + p.manufacturer : "");
+        list.appendChild(li);
+      });
+    });
+
+    socket.on("data", (payload) => {
+      const now = new Date();
+      el("clock").textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const fields = Object.entries(payload)
+        .filter(([k]) => k !== "device")
+        .map(
+          ([k, v]) =>
+            `<p class="p">
+               <span class="k">${k}</span>=<span class="v">${typeof v === "number" ? v.toFixed(6) : v}</span>
+            </p>`
+        )
+        .join("");
+      el("fields").innerHTML = `<span class="k">dev</span>=<span class="v">${payload.device}</span>${fields}`;
     });
   </script>
 </body>
