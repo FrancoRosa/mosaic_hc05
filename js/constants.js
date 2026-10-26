@@ -441,6 +441,77 @@ const registers = {
       unit: "deg",
     },
   },
+  msc_status: {
+    header: "\x24\x40",
+    number: 4014, // ReceiverStatus — see SBF reference guide 4.2 (ReceiverStatus)
+    // indexes are relative to the frame handed over by the DelimiterParser,
+    // i.e. block offset - 2 since the "$@" sync bytes are stripped
+    tow: 6, // u4, ms, DNU 4294967295
+    wnc: 10, // u2, DNU 65535
+    cpuLoad: 12, // u1, %, DNU 255
+    extError: 13, // u1 bitfield
+    upTime: 14, // u4, s
+    rxState: 18, // u4 bitfield
+    rxError: 22, // u4 bitfield
+    n: 26, // u1, number of AGCState sub-blocks
+    sbLength: 27, // u1, AGCState sub-block length
+    cmdCount: 28, // u1, DNU 0
+    temperature: 29, // u1, degC + 100, DNU 0
+    agcStart: 30,
+    extErrorBits: {
+      0: "SISERROR",
+      1: "DIFFCORRERROR",
+      2: "EXTSENSORERROR",
+      3: "SETUPERROR",
+    },
+    rxStateBits: {
+      1: "ACTIVEANTENNA",
+      2: "EXT_FREQ",
+      3: "EXT_TIME",
+      4: "WNSET",
+      5: "TOWSET",
+      6: "FINETIME",
+      7: "INTERNALDISK_ACTIVITY",
+      8: "INTERNALDISK_FULL",
+      9: "INTERNALDISK_MOUNTED",
+      10: "INT_ANT",
+      11: "REFOUT_LOCKED",
+      13: "EXTERNALDISK_ACTIVITY",
+      14: "EXTERNALDISK_FULL",
+      15: "EXTERNALDISK_MOUNTED",
+      16: "PPS_IN_CAL",
+      17: "DIFFCORR_IN",
+      18: "INTERNET",
+    },
+    rxErrorBits: {
+      3: "SOFTWARE",
+      4: "WATCHDOG",
+      5: "ANTENNA", // antenna overcurrent (short), not an open antenna
+      6: "CONGESTION",
+      8: "MISSEDEVENT",
+      9: "CPUOVERLOAD",
+      10: "INVALIDCONFIG",
+      11: "OUTOFFENCE",
+    },
+    frontends: {
+      0: "GPSL1/E1",
+      1: "GLOL1",
+      2: "E6",
+      3: "GPSL2",
+      4: "GLOL2",
+      5: "L5/E5a/B2a",
+      6: "E5b/B2b",
+      7: "E5",
+      8: "L1 combined",
+      9: "L2 combined",
+      10: "MSS/L-band",
+      11: "B1",
+      12: "B3",
+      13: "S-band",
+      14: "B3/E6",
+    },
+    antennas: { 0: "main", 1: "aux1", 2: "aux2" },
+  },
 };
 
 module.exports = registers;

@@ -184,6 +184,13 @@ const decode = (e, flags, device, broadcaster) => {
     } catch (error) {}
   }
 
+  if (block === registers.msc_status.number && e.length >= 30) {
+    try {
+      const status = statusMosaicDecoder(e, registers.msc_status);
+      if (status) broadcaster("status", { ...status, device });
+    } catch (error) {}
+  }
+
   if (block === registers.msc_rel.number && e.length >= 92) {
     try {
       const geoPVT = pvtMosaicDecoder(e, registers.msc_rel);
@@ -284,6 +291,82 @@ const insAttMosaicDecoder = (e, obj) => {
     heading: valid(heading) ? heading : 0,
     pitch: valid(pitch) ? pitch : 0,
     roll: valid(roll) ? roll : 0,
+  };
+};
+
+// CRC-CCITT (poly 0x1021, init 0) over ID..end of block (guide 4.1.1)
+const crc16 = (buf) => {
+  let crc = 0;
+  for (const byte of buf) {
+    crc ^= byte << 8;
+    for (let i = 0; i < 8; i++) {
+      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+    crc &= 0xffff;
+  }
+  return crc;
+};
+
+const bitNames = (value, map) =>
+  Object.entries(map)
+    .filter(([bit]) => (value >>> bit) & 1)
+    .map(([, name]) => name);
+
+// ReceiverStatus (4014). Unlike the nav blocks this one drives alarms, so
+// it is CRC-checked: a "$@" inside the payload or a corrupted bluetooth
+// frame would otherwise produce bogus antenna/error flags
+const statusMosaicDecoder = (e, obj) => {
+  const length = e.readUInt16LE(4) - 2; // block length minus stripped sync
+  if (length < 32 || e.length < length) return null;
+  if (crc16(e.subarray(2, length)) !== e.readUInt16LE(0)) return null;
+
+  const tow = e.readUInt32LE(obj.tow);
+  const cpuLoad = e.readUInt8(obj.cpuLoad);
+  const extError = e.readUInt8(obj.extError);
+  const rxState = e.readUInt32LE(obj.rxState);
+  const rxError = e.readUInt32LE(obj.rxError);
+  const temperature = e.readUInt8(obj.temperature);
+  const n = e.readUInt8(obj.n);
+  const sbLength = e.readUInt8(obj.sbLength);
+
+  const agc = [];
+  for (let i = 0; i < n && sbLength >= 4; i++) {
+    const offset = obj.agcStart + i * sbLength;
+    if (offset + 4 > length) break;
+    const id = e.readUInt8(offset);
+    const gain = e.readInt8(offset + 1);
+    const sampleVar = e.readUInt8(offset + 2);
+    agc.push({
+      frontend: obj.frontends[id & 0x1f] ?? `FE${id & 0x1f}`,
+      antenna: obj.antennas[id >> 5] ?? `ant${id >> 5}`,
+      gain: gain === -128 ? null : gain, // null: frontend PLL not locked
+      sampleVar: sampleVar === 0 ? null : sampleVar,
+      blanking: e.readUInt8(offset + 3),
+    });
+  }
+
+  // RxError.ANTENNA only flags overcurrent (short); an open/disconnected
+  // active antenna shows up as RxState.ACTIVEANTENNA being cleared. Both
+  // only describe the main antenna input
+  const antennaShort = !!(rxError & (1 << 5));
+  const antennaCurrent = !!(rxState & (1 << 1));
+  const antenna = antennaShort ? "short" : antennaCurrent ? "ok" : "open";
+
+  return {
+    tow: tow === 4294967295 ? null : tow,
+    wnc: e.readUInt16LE(obj.wnc),
+    cpuLoad: cpuLoad === 255 ? null : cpuLoad,
+    temperature: temperature === 0 ? null : temperature - 100,
+    upTime: e.readUInt32LE(obj.upTime),
+    cmdCount: e.readUInt8(obj.cmdCount),
+    antenna,
+    extError,
+    extErrors: bitNames(extError, obj.extErrorBits),
+    rxState,
+    rxStates: bitNames(rxState, obj.rxStateBits),
+    rxError,
+    rxErrors: bitNames(rxError, obj.rxErrorBits),
+    agc,
   };
 };
 

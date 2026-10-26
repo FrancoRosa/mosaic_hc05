@@ -28,6 +28,7 @@ const state = {
   ntrip: null,
   stats: null,
   data: null,
+  status: null,
 };
 
 const emitter = (type, message) => {

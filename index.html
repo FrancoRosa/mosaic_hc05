@@ -113,9 +113,20 @@
   .fields .p { margin: 0; padding: 0;}
   .fields .k { color: var(--dim); }
   .fields .v { color: var(--fg); margin-right: 18px; }
+  .rxstatus { flex: 0 0 340px; }
+  .rxstatus .body { padding: 10px 12px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; }
+  .kv .v.ok { color: var(--ok); }
+  .kv .v.warn { color: var(--warn); }
+  .kv .v.err { color: var(--err); }
+  .agc { border-collapse: collapse; width: 100%; }
+  .agc th { color: var(--dim); font-weight: 400; font-size: 11px; text-align: left; text-transform: uppercase; }
+  .agc td, .agc th { padding: 2px 8px 2px 0; }
+  .agc td.num, .agc th.num { text-align: right; }
   @media (max-width: 700px) {
     .panels { flex-direction: column; }
     .devices { flex: 0 0 160px; }
+    .rxstatus { flex: 0 0 auto; }
   }
 </style>
 </head>
@@ -139,6 +150,25 @@
     <div class="panel devices">
       <h2>usb / serial devices</h2>
       <ul id="deviceList"><li class="label">scanning...</li></ul>
+    </div>
+    <div class="panel rxstatus">
+      <h2><span class="dot" id="dotRx" style="display:inline-block;margin-right:6px"></span>receiver status</h2>
+      <div class="body">
+        <div class="kv">
+          <span class="label">antenna</span><span class="v" id="rxAntenna">-</span>
+          <span class="label">rx error</span><span class="v" id="rxError">-</span>
+          <span class="label">ext error</span><span class="v" id="rxExtError">-</span>
+          <span class="label">cpu</span><span class="v" id="rxCpu">-</span>
+          <span class="label">temp</span><span class="v" id="rxTemp">-</span>
+          <span class="label">rx uptime</span><span class="v" id="rxUptime">-</span>
+          <span class="label">rx state</span><span class="v" id="rxState">-</span>
+          <span class="label">last update</span><span class="v" id="rxAge">-</span>
+        </div>
+        <table class="agc">
+          <thead><tr><th>ant</th><th>frontend</th><th class="num">gain dB</th><th class="num">var</th><th class="num">blank %</th></tr></thead>
+          <tbody id="agcRows"><tr><td colspan="5" class="label">waiting for ReceiverStatus...</td></tr></tbody>
+        </table>
+      </div>
     </div>
     <div class="panel">
       <h2>parsed gps data</h2>
@@ -226,6 +256,56 @@
         const li = document.createElement("li");
         li.textContent = p.path + (p.manufacturer ? " — " + p.manufacturer : "");
         list.appendChild(li);
+      });
+    });
+
+    let lastStatus = null;
+
+    function setVal(id, text, cls) {
+      el(id).textContent = text;
+      el(id).className = "v" + (cls ? " " + cls : "");
+    }
+
+    // ReceiverStatus is expected every second; flag the panel if it stops
+    setInterval(() => {
+      if (!lastStatus) return;
+      const age = (Date.now() - lastStatus) / 1000;
+      setVal("rxAge", `${age.toFixed(0)}s ago`, age > 3 ? "err" : "");
+      if (age > 3) setDot("dotRx", "err");
+    }, 1000);
+
+    socket.on("status", (s) => {
+      lastStatus = Date.now();
+      const antennaText = {
+        ok: "ok (current sensed)",
+        open: "OPEN / not detected",
+        short: "SHORT / overcurrent",
+      }[s.antenna];
+      setVal("rxAntenna", antennaText, s.antenna === "ok" ? "ok" : "err");
+      setVal("rxError", s.rxErrors.length ? s.rxErrors.join(" ") : "none", s.rxError ? "err" : "ok");
+      setVal("rxExtError", s.extErrors.length ? s.extErrors.join(" ") : "none", s.extError ? "warn" : "ok");
+      setVal("rxCpu", s.cpuLoad === null ? "-" : `${s.cpuLoad}%`, s.cpuLoad > 80 ? "warn" : "");
+      setVal("rxTemp", s.temperature === null ? "-" : `${s.temperature} °C`);
+      setVal("rxUptime", fmtUptime(s.upTime * 1000));
+      setVal("rxState", s.rxStates.join(" ") || "-");
+      setVal("rxAge", "0s ago");
+      setDot(
+        "dotRx",
+        s.antenna !== "ok" || s.rxError ? "err" : s.extError ? "warn" : "ok"
+      );
+
+      const rows = el("agcRows");
+      rows.innerHTML = "";
+      s.agc.forEach((a) => {
+        const tr = document.createElement("tr");
+        [a.antenna, a.frontend, a.gain === null ? "unlocked" : a.gain, a.sampleVar ?? "-", a.blanking].forEach((v, i) => {
+          const td = document.createElement("td");
+          td.textContent = v;
+          if (i >= 2) td.className = "num";
+          if (i === 2 && a.gain === null) td.style.color = "var(--err)";
+          tr.appendChild(td);
+        });
+        rows.appendChild(tr);
       });
     });
 
