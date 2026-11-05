@@ -152,8 +152,6 @@ const getFlags = (frame, target) => {
   return result;
 };
 
-let dataCount = 0;
-
 // per the SBF reference guide (4.1.1/4.1.6/4.1.12): only bits 0-12 of the ID
 // field identify the block, bits 13-15 are just its revision number, and
 // block lengths must not be hardcoded since later revisions only append
@@ -199,11 +197,8 @@ const decode = (e, flags, device, broadcaster) => {
 
     flags.pvt = 1;
     flags.rel = 1;
-    dataCount++;
-    if (dataCount >= 5) {
-      broadcaster("data", { ...payload, device });
-      dataCount = 0;
-    }
+    // one "data" event per PVTGeodetic, i.e. at the receiver's output rate
+    broadcaster("data", { ...payload, device });
   }
 };
 
@@ -371,3 +366,4 @@ const statusMosaicDecoder = (e, obj) => {
 };
 
 exports.decode = decode;
+exports.crc16 = crc16;

@@ -1,6 +1,6 @@
 const { SerialPort } = require("serialport");
-const { DelimiterParser } = require("@serialport/parser-delimiter");
 const { decode } = require("./mosaic_decoder");
+const { SbfFramer } = require("./sbf_framer");
 
 const { io } = require("socket.io-client");
 const settings = require("../settings.json");
@@ -131,7 +131,7 @@ const connectGPS = async (broadcaster) => {
   if (paths[index1] === undefined) index1 = 0;
   if (paths.length > 0) {
     port1 = new SerialPort({ path: paths[index1], baudRate });
-    const parser = port1.pipe(new DelimiterParser({ delimiter: "\x24\x40" }));
+    const parser = port1.pipe(new SbfFramer());
     port1.on("data", (chunk) => {
       serialBytes += chunk.length;
     });

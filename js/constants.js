@@ -444,7 +444,7 @@ const registers = {
   msc_status: {
     header: "\x24\x40",
     number: 4014, // ReceiverStatus — see SBF reference guide 4.2 (ReceiverStatus)
-    // indexes are relative to the frame handed over by the DelimiterParser,
+    // indexes are relative to the frame handed over by SbfFramer,
     // i.e. block offset - 2 since the "$@" sync bytes are stripped
     tow: 6, // u4, ms, DNU 4294967295
     wnc: 10, // u2, DNU 65535
