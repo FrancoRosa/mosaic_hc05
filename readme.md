@@ -141,6 +141,25 @@ Once running, open `http://localhost:10000` in a browser to see the live
 terminal UI — ntrip and serial connection status, throughput in kbps, the
 detected USB/serial devices, and the parsed GPS data stream.
 
+### Low-latency WebSocket server
+
+`apiws.js` is the same service, but the UI link uses plain WebSockets
+(implemented on Node's `http` server, so no socket.io or express) and sends
+`data`, `stats` and `status` as compact binary frames instead of JSON. A
+`data` frame is 63 bytes instead of about 230 bytes of JSON. Nagle's
+algorithm is turned off, and a client that falls behind has old `data` frames dropped instead of
+queued, so it always gets the newest fix.
+
+```bash
+$ node apiws.js          # Mosaic-H
+$ node apiws.js antarx   # AntaRx-Si3
+```
+
+It serves `indexws.html` on the same port (10000). The wire format is
+documented in, and decoded by, [`js/wire.js`](./js/wire.js), which works both
+in Node (`require`) and in the browser (`/js/wire.js`). Any other client
+should use that file to decode the stream.
+
 ## Building a standalone bundle
 
 Use `compile.sh` to bundle the server into a single file with esbuild,

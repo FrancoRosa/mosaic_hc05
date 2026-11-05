@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>mosaic_hc05 terminal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0d0a;
+    --panel: #0f140f;
+    --border: #1e2a1e;
+    --fg: #c9f7c9;
+    --dim: #5f8a5f;
+    --ok: #39ff88;
+    --warn: #ffcc66;
+    --err: #ff5f5f;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 10px;
+    gap: 8px;
+  }
+  .titlebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 10px 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--fg);
+  }
+  .statusbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    padding: 8px 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .stat { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .label { color: var(--dim); text-transform: uppercase; font-size: 11px; letter-spacing: 1px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: none; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .dot.err { background: var(--err); box-shadow: 0 0 6px var(--err); }
+  .panels { display: flex; gap: 8px; flex: 1; min-height: 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel h2 {
+    margin: 0;
+    padding: 6px 10px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--dim);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .devices { flex: 0 0 240px; }
+  .devices ul { list-style: none; margin: 0; padding: 8px 10px; overflow: auto; }
+  .devices li { padding: 3px 0; word-break: break-all; }
+  .readout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    gap: 10px;
+    padding: 12px;
+    min-height: 0;
+  }
+  .clock {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--ok);
+  }
+  .fields {
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+  .fields .p { margin: 0; padding: 0;}
+  .fields .k { color: var(--dim); }
+  .fields .v { color: var(--fg); margin-right: 18px; }
+  .rxstatus { flex: 0 0 340px; }
+  .rxstatus .body { padding: 10px 12px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+  .kv { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; }
+  .kv .v.ok { color: var(--ok); }
+  .kv .v.warn { color: var(--warn); }
+  .kv .v.err { color: var(--err); }
+  .agc { border-collapse: collapse; width: 100%; }
+  .agc th { color: var(--dim); font-weight: 400; font-size: 11px; text-align: left; text-transform: uppercase; }
+  .agc td, .agc th { padding: 2px 8px 2px 0; }
+  .agc td.num, .agc th.num { text-align: right; }
+  @media (max-width: 700px) {
+    .panels { flex-direction: column; }
+    .devices { flex: 0 0 160px; }
+    .rxstatus { flex: 0 0 auto; }
+  }
+</style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title"><span class="dot" id="dotSocket"></span>gnss service</div>
+    <div class="stat"><span class="label">uptime</span><span id="uptime">00:00:00</span></div>
+  </div>
+  <div class="statusbar">
+    <div class="stat"><span class="dot" id="dotGps"></span><span class="label">serial</span><span id="gpsStatus">-</span></div>
+    <div class="stat"><span class="label">kbps</span><span id="serialKbps">0</span></div>
+    <div class="stat"><span class="label">port</span><span id="portPath">-</span></div>
+  </div>
+  <div class="statusbar">
+    <div class="stat"><span class="dot" id="dotNtrip"></span><span class="label">ntrip</span><span id="ntripStatus">-</span></div>
+    <div class="stat"><span class="label">kbps</span><span id="ntripKbps">0</span></div>
+    <div class="stat"><span class="label">url</span><span id="ntripUrl">-</span></div>
+  </div>
+
+  <div class="panels">
+    <div class="panel devices">
+      <h2>usb / serial devices</h2>
+      <ul id="deviceList"><li class="label">scanning...</li></ul>
+    </div>
+    <div class="panel rxstatus">
+      <h2><span class="dot" id="dotRx" style="display:inline-block;margin-right:6px"></span>receiver status</h2>
+      <div class="body">
+        <div class="kv">
+          <span class="label">antenna</span><span class="v" id="rxAntenna">-</span>
+          <span class="label">rx error</span><span class="v" id="rxError">-</span>
+          <span class="label">ext error</span><span class="v" id="rxExtError">-</span>
+          <span class="label">cpu</span><span class="v" id="rxCpu">-</span>
+          <span class="label">temp</span><span class="v" id="rxTemp">-</span>
+          <span class="label">rx uptime</span><span class="v" id="rxUptime">-</span>
+          <span class="label">rx state</span><span class="v" id="rxState">-</span>
+          <span class="label">last update</span><span class="v" id="rxAge">-</span>
+        </div>
+        <table class="agc">
+          <thead><tr><th>ant</th><th>frontend</th><th class="num">gain dB</th><th class="num">var</th><th class="num">blank %</th></tr></thead>
+          <tbody id="agcRows"><tr><td colspan="5" class="label">waiting for ReceiverStatus...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>parsed gps data</h2>
+      <div class="readout">
+        <div class="clock" id="clock">--:--:--</div>
+        <div class="fields" id="fields">-</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/wire.js"></script>
+  <script>
+    const el = (id) => document.getElementById(id);
+    // minimal stand-in for the socket.io client: native WebSocket, binary
+    // frames decoded with js/wire.js, same socket.on(type, fn) interface
+    const socket = (() => {
+      const handlers = {};
+      let decode = null;
+      const fire = (type, message) =>
+        (handlers[type] || []).forEach((fn) => {
+          try {
+            fn(message);
+          } catch (e) {
+            console.error(e);
+          }
+        });
+      const connect = () => {
+        const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`);
+        ws.binaryType = "arraybuffer";
+        ws.onopen = () => fire("connect");
+        ws.onclose = () => {
+          decode = null;
+          fire("disconnect");
+          setTimeout(connect, 1000);
+        };
+        ws.onmessage = ({ data }) => {
+          if (typeof data === "string") {
+            const [type, message] = JSON.parse(data);
+            if (type === "meta") decode = Wire.createDecoder(message);
+            fire(type, message);
+            return;
+          }
+          const msg = decode && decode(data);
+          if (msg) fire(msg[0], msg[1]);
+        };
+      };
+      connect();
+      return { on: (type, fn) => (handlers[type] ||= []).push(fn) };
+    })();
+
+    let bootTime = null;
+    let uptimeTimer = null;
+
+    const pad = (n) => String(n).padStart(2, "0");
+
+    function fmtUptime(ms) {
+      let s = Math.floor(ms / 1000);
+      const h = pad(Math.floor(s / 3600));
+      s %= 3600;
+      const m = pad(Math.floor(s / 60));
+      s %= 60;
+      return `${h}:${m}:${pad(s)}`;
+    }
+
+    function setDot(id, cls) {
+      el(id).className = "dot" + (cls ? " " + cls : "");
+    }
+
+    socket.on("connect", () => {
+      setDot("dotSocket", "ok");
+    });
+
+    socket.on("disconnect", () => {
+      setDot("dotSocket", "err");
+    });
+
+    socket.on("boot", ({ startTime }) => {
+      bootTime = startTime;
+      if (uptimeTimer) clearInterval(uptimeTimer);
+      uptimeTimer = setInterval(() => {
+        el("uptime").textContent = fmtUptime(Date.now() - bootTime);
+      }, 1000);
+      el("uptime").textContent = fmtUptime(Date.now() - bootTime);
+    });
+
+    socket.on("ntrip", ({ status, url }) => {
+      el("ntripStatus").textContent = status;
+      el("ntripUrl").textContent = url;
+      setDot("dotNtrip", status === "connected" ? "ok" : status === "connecting" ? "warn" : "err");
+    });
+
+    socket.on("stats", ({ ntripKbps, serialKbps }) => {
+      el("ntripKbps").textContent = ntripKbps.toFixed(1);
+      el("serialKbps").textContent = serialKbps.toFixed(1);
+    });
+
+    socket.on("gps", ({ device, status, path }) => {
+      el("gpsStatus").textContent = `${status} (dev ${device})`;
+      setDot(
+        "dotGps",
+        status === "connected"
+          ? "ok"
+          : status === "connecting"
+          ? "warn"
+          : "err"
+      );
+      if (path) el("portPath").textContent = path;
+    });
+
+    socket.on("ports", ({ ports }) => {
+      const list = el("deviceList");
+      list.innerHTML = "";
+      if (!ports || ports.length === 0) {
+        list.innerHTML = '<li class="label">no devices found</li>';
+        return;
+      }
+      ports.forEach((p) => {
+        const li = document.createElement("li");
+        li.textContent = p.path + (p.manufacturer ? " — " + p.manufacturer : "");
+        list.appendChild(li);
+      });
+    });
+
+    let lastStatus = null;
+
+    function setVal(id, text, cls) {
+      el(id).textContent = text;
+      el(id).className = "v" + (cls ? " " + cls : "");
+    }
+
+    // ReceiverStatus is expected every second; flag the panel if it stops
+    setInterval(() => {
+      if (!lastStatus) return;
+      const age = (Date.now() - lastStatus) / 1000;
+      setVal("rxAge", `${age.toFixed(0)}s ago`, age > 3 ? "err" : "");
+      if (age > 3) setDot("dotRx", "err");
+    }, 1000);
+
+    socket.on("status", (s) => {
+      lastStatus = Date.now();
+      const antennaText = {
+        ok: "ok (current sensed)",
+        open: "OPEN / not detected",
+        short: "SHORT / overcurrent",
+      }[s.antenna];
+      setVal("rxAntenna", antennaText, s.antenna === "ok" ? "ok" : "err");
+      setVal("rxError", s.rxErrors.length ? s.rxErrors.join(" ") : "none", s.rxError ? "err" : "ok");
+      setVal("rxExtError", s.extErrors.length ? s.extErrors.join(" ") : "none", s.extError ? "warn" : "ok");
+      setVal("rxCpu", s.cpuLoad === null ? "-" : `${s.cpuLoad}%`, s.cpuLoad > 80 ? "warn" : "");
+      setVal("rxTemp", s.temperature === null ? "-" : `${s.temperature} °C`);
+      setVal("rxUptime", fmtUptime(s.upTime * 1000));
+      setVal("rxState", s.rxStates.join(" ") || "-");
+      setVal("rxAge", "0s ago");
+      setDot(
+        "dotRx",
+        s.antenna !== "ok" || s.rxError ? "err" : s.extError ? "warn" : "ok"
+      );
+
+      const rows = el("agcRows");
+      rows.innerHTML = "";
+      s.agc.forEach((a) => {
+        const tr = document.createElement("tr");
+        [a.antenna, a.frontend, a.gain === null ? "unlocked" : a.gain, a.sampleVar ?? "-", a.blanking].forEach((v, i) => {
+          const td = document.createElement("td");
+          td.textContent = v;
+          if (i >= 2) td.className = "num";
+          if (i === 2 && a.gain === null) td.style.color = "var(--err)";
+          tr.appendChild(td);
+        });
+        rows.appendChild(tr);
+      });
+    });
+
+    socket.on("data", (payload) => {
+      const now = new Date();
+      el("clock").textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+      const fields = Object.entries(payload)
+        .filter(([k]) => k !== "device")
+        .map(
+          ([k, v]) =>
+            `<p class="p">
+               <span class="k">${k}</span>=<span class="v">${typeof v === "number" ? v.toFixed(6) : v}</span>
+            </p>`
+        )
+        .join("");
+      el("fields").innerHTML = `<span class="k">dev</span>=<span class="v">${payload.device}</span>${fields}`;
+    });
+  </script>
+</body>
+</html>
